@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     wget \
     git \
+    zstd \
     && rm -rf /var/lib/apt/lists/*
 
 # Instala Ollama
