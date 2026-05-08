@@ -2,239 +2,285 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches:
+      - main
+      - develop
+
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
+
   release:
-    types: [ published ]
+    types:
+      - published
+
+permissions:
+  contents: read
+  packages: write
 
 env:
   PYTHON_VERSION: "3.11"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
 
 jobs:
   test:
     name: Test Suite
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11", "3.12"]
 
-    services:
-      ollama:
-        image: ollama/ollama:latest
-        ports:
-          - 11434:11434
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.10"
+          - "3.11"
+          - "3.12"
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v5         # era @v4 (Node 20 depreciado)
-      with:
-        fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5    # era @v4 (Node 20 depreciado)
-      with:
-        python-version: ${{ matrix.python-version }}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
 
-    - name: Cache pip dependencies
-      uses: actions/cache@v4            # era @v3 (depreciado)
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl
 
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential curl
+      - name: Install Ollama
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
 
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install setuptools wheel    # FIX: resolve BackendUnavailable
-        pip install -e ".[dev]"
+      - name: Start Ollama server
+        run: |
+          ollama serve > ollama.log 2>&1 &
 
-    - name: Pull Ollama model
-      run: |
-        sleep 30
-        ollama pull llama3.2:3b || echo "Using fallback model"
+      - name: Wait for Ollama
+        run: |
+          timeout 60 bash -c 'until curl -s http://127.0.0.1:11434/api/tags > /dev/null; do sleep 2; done'
 
-    - name: Lint with Ruff
-      run: |
-        ruff check src/ tests/
-        ruff format --check src/ tests/
+      - name: Pull Ollama model
+        run: |
+          ollama pull llama3.2:3b
 
-    - name: Type check with MyPy
-      run: |
-        mypy src/ --ignore-missing-imports
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -e ".[dev]"
 
-    - name: Run unit tests
-      run: |
-        pytest tests/unit/ -v --cov=src/docbr_rag --cov-report=xml
+      - name: Ruff lint
+        run: |
+          ruff check src tests
+          ruff format --check src tests
 
-    - name: Run integration tests
-      run: |
-        pytest tests/integration/ -v --cov=src/docbr_rag --cov-report=xml --cov-append
-      env:
-        DOCBR_LLM_MODEL: llama3.2:3b
-        DOCBR_LOG_LEVEL: DEBUG
+      - name: MyPy
+        run: |
+          mypy src --ignore-missing-imports
 
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v5  # era @v3 (Node 20 depreciado)
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
+      - name: Unit tests
+        run: |
+          pytest tests/unit -v \
+            --cov=src/docbr_rag \
+            --cov-report=xml \
+            --cov-report=term
+
+      - name: Integration tests
+        env:
+          DOCBR_LLM_MODEL: llama3.2:3b
+          DOCBR_LOG_LEVEL: DEBUG
+        run: |
+          pytest tests/integration -v \
+            --cov=src/docbr_rag \
+            --cov-report=xml \
+            --cov-append
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+
+      - name: Upload Ollama logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ollama-logs
+          path: ollama.log
 
   security:
     name: Security Scan
     runs-on: ubuntu-latest
     continue-on-error: true
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v5        # era @v4 (Node 20 depreciado)
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Run Bandit Security Scan
-      run: |
-        pip install "bandit[toml]"
-        bandit -r src/ -f json -o bandit-report.json --exit-zero || true
-        echo "Bandit scan completed"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
 
-    - name: Upload Bandit Report
-      uses: actions/upload-artifact@v4  # FIX: era @v3 (depreciado — causava falha em 2s)
-      with:
-        name: bandit-report
-        path: bandit-report.json
+      - name: Install security tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit[toml] safety
 
-    - name: Install Safety
-      run: |
-        pip install safety==3.2.9
+      - name: Run Bandit
+        run: |
+          bandit -r src -f json -o bandit-report.json || true
 
-    - name: Run Safety Check
-      run: |
-        safety scan --output json > safety-report.json
+      - name: Run Safety
+        run: |
+          safety check --json > safety-report.json || true
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+            safety-report.json
 
   build:
     name: Build Docker Image
     runs-on: ubuntu-latest
-    needs: [test]
+    needs:
+      - test
+
+    permissions:
+      contents: read
+      packages: write
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v5        # era @v4 (Node 20 depreciado)
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Login to Docker Hub
-      if: github.event_name != 'pull_request'
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Login to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: riichspider/docbr-rag
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: riichspider/docbr-rag
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
 
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        platforms: linux/amd64,linux/arm64
-        push: ${{ github.event_name != 'pull_request' }}
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
 
   deploy:
-    name: Deploy to Production
+    name: Deploy Production
     runs-on: ubuntu-latest
-    needs: [test, build]
+    needs:
+      - build
+
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    environment: production
+
+    environment:
+      name: production
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v5        # era @v4 (Node 20 depreciado)
-
-    - name: Deploy to server
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.HOST }}
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.SSH_KEY }}
-        script: |
-          cd /opt/docbr-rag
-          docker-compose pull
-          docker-compose up -d
-          docker system prune -f
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /opt/docbr-rag
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker image prune -f
 
   publish:
-    name: Publish to PyPI
+    name: Publish PyPI
     runs-on: ubuntu-latest
-    needs: [test]
+    needs:
+      - test
+
     if: github.event_name == 'release'
 
+    permissions:
+      id-token: write
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v5        # era @v4 (Node 20 depreciado)
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5   # era @v4 (Node 20 depreciado)
-      with:
-        python-version: "3.11"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
 
-    - name: Install build dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build twine setuptools setuptools-scm
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine setuptools setuptools-scm
 
-    - name: Build package
-      run: |
-        python -m build
+      - name: Build package
+        run: python -m build
 
-    - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        password: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Publish package
+        uses: pypa/gh-action-pypi-publish@release/v1
 
   docs:
-    name: Build Documentation
+    name: Build Docs
     runs-on: ubuntu-latest
-    needs: [test]
+
+    needs:
+      - test
+
     if: github.ref == 'refs/heads/main'
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v5        # era @v4 (Node 20 depreciado)
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5   # era @v4 (Node 20 depreciado)
-      with:
-        python-version: "3.11"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install setuptools wheel   # consistência com o job test
-        pip install -e ".[dev]"
+      - name: Install docs dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -e ".[dev]"
+          pip install mkdocs mkdocs-material
 
-    - name: Build documentation
-      run: |
-        mkdocs build
+      - name: Build docs
+        run: |
+          mkdocs build --strict
 
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./site
+      - name: Deploy GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
