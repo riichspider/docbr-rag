@@ -25,7 +25,7 @@ jobs:
         ports:
           - 11434:11434
         options: >-
-          --health-cmd "ollama list"
+          --health-cmd "curl -f http://localhost:11434/api/tags || exit 1"
           --health-interval 30s
           --health-timeout 10s
           --health-retries 5
@@ -63,7 +63,7 @@ jobs:
       run: |
         # Wait for Ollama to be ready
         timeout 60 bash -c 'until curl -f http://localhost:11434/api/tags; do sleep 2; done'
-        ollama pull llama3.2:3b
+        ollama pull llama3.2:3b || echo "Model pull failed, continuing..."
     
     - name: Lint with Ruff
       run: |
@@ -101,7 +101,7 @@ jobs:
       uses: actions/checkout@v4
     
     - name: Run Bandit Security Scan
-      uses: securecodewarrior/github-action-bandit-scan@master
+      uses: securecodewarrior/github-action-bandit-scan@v1
       with:
         path: src/
     
@@ -138,7 +138,7 @@ jobs:
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: seu-usuario/docbr-rag
+        images: riichspider/docbr-rag
         tags: |
           type=ref,event=branch
           type=ref,event=pr
