@@ -108,6 +108,10 @@ jobs:
         name: bandit-report
         path: bandit-report.json
 
+    - name: Install Safety
+      run: |
+        pip install safety==3.2.9
+
     - name: Run Safety Check
       run: |
         safety scan --output json > safety-report.json
