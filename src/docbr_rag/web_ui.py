@@ -7,14 +7,11 @@ import streamlit as st
 import pandas as pd
 from pathlib import Path
 import time
-from typing import List, Dict, Any
 import plotly.express as px
 import plotly.graph_objects as go
 
 from .core import DocBR
-from .models import TipoDocumento, DocumentoInfo, Resposta
-from .config import load_config
-from .logging_config import setup_logging, get_logger
+from .logging_config import setup_logging
 
 
 def init_session_state():

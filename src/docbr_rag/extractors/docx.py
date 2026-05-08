@@ -5,7 +5,7 @@ Usa python-docx para parsear documentos Word.
 
 import re
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 import docx
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 

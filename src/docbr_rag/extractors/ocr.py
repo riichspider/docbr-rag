@@ -8,7 +8,7 @@ import numpy as np
 from PIL import Image
 import pytesseract
 from pathlib import Path
-from typing import List, Tuple, Optional, Dict, Any
+from typing import List, Tuple, Optional, Dict
 import re
 
 from ..models import TipoDocumento

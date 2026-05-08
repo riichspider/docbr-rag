@@ -8,7 +8,6 @@ from pathlib import Path
 import shutil
 
 from src.docbr_rag.core import DocBR
-from src.docbr_rag.models import TipoDocumento
 
 
 @pytest.fixture

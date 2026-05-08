@@ -6,7 +6,7 @@ Suporta encoding automático e limpeza de artefatos.
 import re
 import chardet
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 
 from ..models import TipoDocumento
 
@@ -196,7 +196,7 @@ def _detectar_encoding(caminho: Path) -> str:
             # Valida encoding comum para documentos brasileiros
             if encoding and encoding.lower() in ['utf-8', 'utf-16', 'iso-8859-1', 'cp1252']:
                 return encoding
-    except:
+    except Exception:
         pass
 
     # Fallback: tenta encodings comuns

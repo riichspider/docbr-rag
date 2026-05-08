@@ -7,7 +7,6 @@ import os
 import yaml
 from pathlib import Path
 from typing import Optional, Dict, Any
-from dataclasses import dataclass, field
 from pydantic import BaseModel, Field, validator
 
 from .exceptions import ConfigurationError

@@ -4,16 +4,15 @@ Implementa a classe DocBR que orquestra todo o processo RAG.
 """
 
 from pathlib import Path
-from typing import Optional, List
+from typing import List
 import chromadb
 from sentence_transformers import SentenceTransformer
 import ollama
 
-from .models import Resposta, DocumentoInfo, TipoDocumento, Chunk
+from .models import Resposta, DocumentoInfo
 from .extractors import extrair_texto_pdf, criar_chunks, detectar_tipo
 from .exceptions import (
-    DocumentProcessingError, PDFExtractionError, EmbeddingGenerationError,
-    VectorDBError, LLMError, OllamaConnectionError, ModelNotFoundError
+    DocumentProcessingError, PDFExtractionError
 )
 from .logging_config import get_logger, log_performance, DocBRLoggerAdapter
 

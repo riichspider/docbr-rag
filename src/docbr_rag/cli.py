@@ -4,12 +4,10 @@ Interface de linha de comando para docbr-rag.
 
 import typer
 from pathlib import Path
-from typing import Optional
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from .core import DocBR
-from .models import TipoDocumento
 
 app = typer.Typer(help="docbr-rag: RAG especializado em documentos brasileiros")
 console = Console()
@@ -51,7 +49,7 @@ def indexar(
         try:
             doc_info = docbr.indexar_documento(caminho)
             
-            console.print(f"[green]✓[/green] Documento indexado com sucesso!")
+            console.print("[green]✓[/green] Documento indexado com sucesso!")
             console.print(f"  • Tipo: {doc_info.tipo.value}")
             console.print(f"  • Páginas: {doc_info.total_paginas}")
             console.print(f"  • Chunks: {doc_info.total_chunks}")

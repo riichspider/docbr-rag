@@ -5,7 +5,7 @@ Implementa busca semântica com filtros estruturados.
 
 import re
 from typing import List, Dict, Any, Optional, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime
 from dataclasses import dataclass
 from enum import Enum
 
