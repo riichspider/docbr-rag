@@ -110,14 +110,7 @@ jobs:
 
     - name: Run Safety Check
       run: |
-        pip install safety
-        safety check --json --output safety-report.json || true
-
-    - name: Upload Safety Report
-      uses: actions/upload-artifact@v4  # FIX: era @v3 (depreciado)
-      with:
-        name: safety-report
-        path: safety-report.json
+        safety scan --output json > safety-report.json
 
   build:
     name: Build Docker Image
