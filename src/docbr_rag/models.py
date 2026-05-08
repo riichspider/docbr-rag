@@ -47,5 +47,4 @@ class DocumentoInfo(BaseModel):
     campos: dict = Field(default_factory=dict)
     indexado: bool = False
 
-    class Config:
-        use_enum_values = True
+    model_config = {"use_enum_values": True}

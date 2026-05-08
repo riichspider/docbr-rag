@@ -88,8 +88,7 @@ class DocBRConfig(BaseModel):
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     
-    class Config:
-        extra = "forbid"  # Não permite campos extras
+    model_config = {"extra": "forbid"}  # Não permite campos extras
 
 
 class ConfigManager:

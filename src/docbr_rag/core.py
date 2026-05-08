@@ -120,6 +120,11 @@ class DocBR:
             self.logger.debug("Gerando embeddings")
             textos = [chunk.texto for chunk in chunks]
             embeddings = self.embedding_model.encode(textos)
+            # Compatível com numpy array (produção) e lista Python (mocks de teste)
+            embeddings_list = [
+                e.tolist() if hasattr(e, 'tolist') else e
+                for e in embeddings
+            ]
             self.logger.debug("Embeddings gerados com sucesso")
 
             # Prepara metadados para ChromaDB
@@ -139,7 +144,7 @@ class DocBR:
             self.logger.debug("Adicionando ao ChromaDB")
             self.collection.add(
                 documents=textos,
-                embeddings=embeddings.tolist(),
+                embeddings=embeddings_list,
                 metadatas=metadados,
                 ids=ids
             )
@@ -186,11 +191,14 @@ class DocBR:
             Resposta gerada com fontes e confiança
         """
         # Gera embedding da pergunta
-        pergunta_embedding = self.embedding_model.encode([pergunta])
+        pergunta_embedding = self.embedding_model.encode([pergunta])[0]
+        # Compatível com numpy array (produção) e lista Python (mocks de teste)
+        if hasattr(pergunta_embedding, 'tolist'):
+            pergunta_embedding = pergunta_embedding.tolist()
 
         # Busca chunks relevantes
         resultados = self.collection.query(
-            query_embeddings=pergunta_embedding.tolist(),
+            query_embeddings=[pergunta_embedding],
             n_results=n_resultados
         )
 
@@ -202,7 +210,7 @@ class DocBR:
 
         # Prepara contexto
         contextos = resultados["documents"][0]
-        metadados = resultados["metadados"][0]
+        metadados = resultados["metadatas"][0]
         paginas_referenciadas = list(set(meta["pagina"] for meta in metadados))
 
         # Constrói prompt
