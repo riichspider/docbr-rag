@@ -27,6 +27,7 @@ docbr = DocBR(
     db_path="./api_db"
 )
 
+
 @app.get("/")
 async def root():
     """Endpoint raiz com informações da API."""
@@ -36,36 +37,37 @@ async def root():
         "descricao": "RAG especializado em documentos brasileiros",
         "endpoints": {
             "indexar": "POST /indexar",
-            "consultar": "POST /consultar", 
+            "consultar": "POST /consultar",
             "listar": "GET /documentos",
             "limpar": "DELETE /documentos"
         }
     }
 
+
 @app.post("/indexar")
 async def indexar_documento(file: UploadFile = File(...)):
     """
     Indexa um arquivo PDF enviado via upload.
-    
+
     Args:
         file: Arquivo PDF enviado via multipart/form-data
-        
+
     Returns:
         Informações do documento indexado
     """
     # Validação do arquivo
     if not file.filename.lower().endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Arquivo deve ser PDF")
-    
+
     # Salva temporariamente
     with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
         shutil.copyfileobj(file.file, tmp)
         tmp_path = tmp.name
-    
+
     try:
         # Indexa o documento
         doc_info = docbr.indexar_documento(tmp_path)
-        
+
         return {
             "status": "sucesso",
             "documento": {
@@ -76,13 +78,15 @@ async def indexar_documento(file: UploadFile = File(...)):
                 "indexado": doc_info.indexado
             }
         }
-        
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao indexar: {str(e)}")
-    
+        raise HTTPException(
+            status_code=500, detail=f"Erro ao indexar: {str(e)}")
+
     finally:
         # Remove arquivo temporário
         Path(tmp_path).unlink(missing_ok=True)
+
 
 @app.post("/consultar")
 async def consultar_documentos(
@@ -92,12 +96,12 @@ async def consultar_documentos(
 ):
     """
     Realiza consulta nos documentos indexados.
-    
+
     Args:
         pergunta: Pergunta sobre os documentos
         n_resultados: Número de chunks relevantes
         temperatura: Temperatura para geração
-        
+
     Returns:
         Resposta gerada com metadados
     """
@@ -107,7 +111,7 @@ async def consultar_documentos(
             n_resultados=n_resultados,
             temperatura=temperatura
         )
-        
+
         return {
             "status": "sucesso",
             "pergunta": pergunta,
@@ -118,16 +122,18 @@ async def consultar_documentos(
                 "confianca": resposta.confianca
             }
         }
-        
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro na consulta: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Erro na consulta: {str(e)}")
+
 
 @app.get("/documentos")
 async def listar_documentos():
     """Lista todos os documentos indexados."""
     try:
         documentos = docbr.listar_documentos()
-        
+
         return {
             "status": "sucesso",
             "total": len(documentos),
@@ -142,34 +148,38 @@ async def listar_documentos():
                 for doc in documentos
             ]
         }
-        
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao listar: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Erro ao listar: {str(e)}")
+
 
 @app.delete("/documentos")
 async def limpar_documentos(confirmar: bool = False):
     """
     Remove todos os documentos do banco de dados.
-    
+
     Args:
         confirmar: Confirmação obrigatória para evitar exclusão acidental
     """
     if not confirmar:
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail="Envie ?confirmar=true para realmente limpar o banco"
         )
-    
+
     try:
         docbr.limpar_database()
-        
+
         return {
             "status": "sucesso",
             "mensagem": "Banco de dados limpo com sucesso"
         }
-        
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao limpar: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Erro ao limpar: {str(e)}")
+
 
 @app.get("/health")
 async def health_check():
@@ -177,7 +187,7 @@ async def health_check():
     try:
         # Testa listagem de documentos (operação leve)
         docbr.listar_documentos()
-        
+
         return {
             "status": "saudavel",
             "servicos": {
@@ -186,7 +196,7 @@ async def health_check():
                 "sentence_transformers": "online"
             }
         }
-        
+
     except Exception as e:
         return JSONResponse(
             status_code=503,
@@ -198,4 +208,4 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000)
