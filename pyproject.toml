@@ -61,5 +61,11 @@ Issues = "https://github.com/seu-usuario/docbr-rag/issues"
 line-length = 88
 target-version = "py310"
 
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = false
+ignore_missing_imports = true
+disable_error_code = ["attr-defined", "assignment"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
