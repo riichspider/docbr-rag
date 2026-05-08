@@ -1,0 +1,32 @@
+# Configuração do docbr-rag
+# Copie este arquivo e ajuste conforme necessário
+
+# Configuração do modelo de embeddings
+embeddings:
+  model_name: "all-MiniLM-L6-v2"  # Modelo para embeddings semânticos
+  device: "cpu"                    # cpu ou cuda (se disponível)
+  batch_size: 32                    # Tamanho do batch para processamento
+
+# Configuração do modelo de linguagem (LLM)
+llm:
+  model_name: "llama3.2:3b"       # Modelo Ollama para geração
+  temperature: 0.7                  # Criatividade (0.0 a 2.0)
+  max_tokens: 2048                  # Máximo de tokens na resposta
+  timeout: 60                       # Timeout em segundos
+
+# Configuração do processo de chunking
+chunking:
+  chunk_size: 500                   # Tamanho dos chunks em caracteres
+  chunk_overlap: 100                 # Sobreposição entre chunks
+
+# Configuração do banco de dados vetorial
+database:
+  path: "./docbr_db"               # Caminho para o banco de dados
+  collection_name: "documentos_br"  # Nome da collection
+  distance_metric: "cosine"          # Métrica: cosine, l2, ip
+
+# Configuração de logging
+logging:
+  level: "INFO"                     # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  file_path: null                  # Arquivo de log (null = apenas console)
+  format_string: null               # Formato customizado (null = padrão)

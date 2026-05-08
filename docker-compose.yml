@@ -1,0 +1,99 @@
+# Docker Compose para docbr-rag
+# Orquestra múltiplos serviços: API, Ollama, Banco de Dados
+
+version: '3.8'
+
+services:
+  # Serviço principal do docbr-rag (API)
+  docbr-api:
+    build:
+      context: .
+      target: production
+    container_name: docbr-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ollama_data:/home/docbr/.ollama
+    environment:
+      - DOCBR_DB_PATH=/app/data/docbr_db
+      - DOCBR_LLM_MODEL=llama3.2:3b
+      - DOCBR_LOG_LEVEL=INFO
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    networks:
+      - docbr-network
+
+  # Serviço Ollama (LLM local)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: docbr-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    restart: unless-stopped
+    networks:
+      - docbr-network
+    # Descomente para GPU support
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # Serviço CLI para uso interativo
+  docbr-cli:
+    build:
+      context: .
+      target: cli
+    container_name: docbr-cli
+    volumes:
+      - ./data:/app/data
+      - ./documents:/app/documents
+      - ollama_data:/home/docbr/.ollama
+    environment:
+      - DOCBR_DB_PATH=/app/data/docbr_db
+      - DOCBR_LLM_MODEL=llama3.2:3b
+    depends_on:
+      - ollama
+    networks:
+      - docbr-network
+    # Comando interativo - use: docker-compose run docbr-cli
+    stdin_open: true
+    tty: true
+
+  # Serviço de desenvolvimento (com hot reload)
+  docbr-dev:
+    build:
+      context: .
+      target: development
+    container_name: docbr-dev
+    ports:
+      - "8001:8000"
+    volumes:
+      - .:/app
+      - ollama_data:/home/docbr/.ollama
+    environment:
+      - DOCBR_DB_PATH=/app/data/docbr_db
+      - DOCBR_LLM_MODEL=llama3.2:3b
+      - DOCBR_LOG_LEVEL=DEBUG
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    networks:
+      - docbr-network
+    command: ["uvicorn", "src.docbr_rag.api_rest:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+volumes:
+  ollama_data:
+    driver: local
+
+networks:
+  docbr-network:
+    driver: bridge

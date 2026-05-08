@@ -1,0 +1,101 @@
+# Docker Compose para desenvolvimento
+# Inclui volumes para código fonte e configurações de debug
+
+version: '3.8'
+
+services:
+  # Ollama para desenvolvimento
+  ollama:
+    image: ollama/ollama:latest
+    container_name: docbr-ollama-dev
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_DEBUG=1
+    restart: unless-stopped
+    networks:
+      - docbr-network
+
+  # API de desenvolvimento com hot reload
+  docbr-api-dev:
+    build:
+      context: .
+      target: development
+    container_name: docbr-api-dev
+    ports:
+      - "8000:8000"
+    volumes:
+      # Código fonte para hot reload
+      - .:/app
+      # Ignora arquivos que não precisam de reload
+      - /app/__pycache__
+      - /app/.pytest_cache
+      # Dados persistentes
+      - ./data:/app/data
+      - ollama_data:/home/docbr/.ollama
+    environment:
+      - DOCBR_DB_PATH=/app/data/docbr_db
+      - DOCBR_LLM_MODEL=llama3.2:3b
+      - DOCBR_LOG_LEVEL=DEBUG
+      - DOCBR_LOG_FILE=/app/logs/debug.log
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    networks:
+      - docbr-network
+    command: ["uvicorn", "src.docbr_rag.api_rest:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-level", "debug"]
+
+  # CLI para testes interativos
+  docbr-cli-dev:
+    build:
+      context: .
+      target: development
+    container_name: docbr-cli-dev
+    volumes:
+      - .:/app
+      - ./documents:/app/documents
+      - ./data:/app/data
+      - ollama_data:/home/docbr/.ollama
+    environment:
+      - DOCBR_DB_PATH=/app/data/docbr_db
+      - DOCBR_LLM_MODEL=llama3.2:3b
+      - DOCBR_LOG_LEVEL=DEBUG
+    depends_on:
+      - ollama
+    networks:
+      - docbr-network
+    # Container interativo
+    stdin_open: true
+    tty: true
+    command: ["bash"]
+
+  # Serviço de testes
+  docbr-tests:
+    build:
+      context: .
+      target: development
+    container_name: docbr-tests
+    volumes:
+      - .:/app
+      - ollama_data:/home/docbr/.ollama
+    environment:
+      - DOCBR_DB_PATH=/tmp/test_db
+      - DOCBR_LLM_MODEL=llama3.2:3b
+      - DOCBR_LOG_LEVEL=DEBUG
+    depends_on:
+      - ollama
+    networks:
+      - docbr-network
+    # Comando para rodar testes
+    command: ["pytest", "tests/", "-v", "--cov=src/docbr_rag"]
+
+volumes:
+  ollama_data:
+    driver: local
+
+networks:
+  docbr-network:
+    driver: bridge

@@ -1,0 +1,70 @@
+# Arquivos a serem ignorados no build Docker
+
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git
+.mypy_cache
+.pytest_cache
+.hypothesis
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Project specific
+*.db
+*.sqlite
+docbr_db/
+data/
+logs/
+htmlcov/
+.pytest_cache/
+
+# Documentation
+docs/_build/
+site/
+
+# Tests
+tests/
+*.test
+
+# Development files
+.env.local
+.env.development
+docker-compose.override.yml
